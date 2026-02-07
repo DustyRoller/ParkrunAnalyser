@@ -1,7 +1,10 @@
-import pandas as pd
 from io import StringIO
 
+import pandas as pd
+from pandas import DataFrame
+
 import plotly.express as px
+from plotly.graph_objects import Figure
 
 from requests import Response, Session
 
@@ -17,7 +20,7 @@ def analyse_results(athlete_id: str) -> None:
         else:
             raise RuntimeError(f"Failed to load page, error code: {response.status_code}")
 
-    data_frame = _parse_results_page(response.text)
+    data_frame: DataFrame = _parse_results_page(response.text)
 
     print(f"Parsed {len(data_frame)} results")
 
@@ -26,8 +29,8 @@ def analyse_results(athlete_id: str) -> None:
     _generate_graph(data_frame)
 
 
-def _generate_graph(data_frame) -> None:
-    fig = px.line(data_frame, x="Run Date", y="time_seconds", title="Parkrun results")
+def _generate_graph(data_frame: DataFrame) -> None:
+    fig: Figure = px.line(data_frame, x="Run Date", y="time_seconds", title="Parkrun results")
     fig.update_layout(xaxis_title="Date", yaxis_title="Time (minute:seconds)")
 
     # Update the y axis to show the time in mm:ss format.
@@ -65,7 +68,7 @@ def _request_results_page(athlete_id: str) -> Response:
             "Sec-Fetch-User": "?1"
         }
 
-        url = f"https://www.parkrun.org.uk/parkrunner/{athlete_id}/all/"
+        url: str = f"https://www.parkrun.org.uk/parkrunner/{athlete_id}/all/"
 
         print(f"Requesting data from {url}")
 
@@ -77,9 +80,9 @@ def _request_results_page(athlete_id: str) -> Response:
 
 def _parse_results_page(page_contents: str) -> pd.DataFrame:
     # Convert the page contents to a file like object for pandas to read.
-    buffer = StringIO(page_contents)
+    buffer: StringIO = StringIO(page_contents)
 
-    tables = pd.read_html(buffer)
+    tables: list[DataFrame] = pd.read_html(buffer)
 
     for df in tables:
         if {"Event", "Run Date", "Time"}.issubset(df.columns):
