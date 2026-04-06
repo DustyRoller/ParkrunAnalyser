@@ -3,8 +3,7 @@ from io import StringIO
 import pandas as pd
 from pandas import DataFrame
 
-import plotly.express as px
-from plotly.graph_objects import Figure
+from plotly.graph_objects import Figure, Scatter
 
 from requests import Response, Session
 
@@ -30,17 +29,25 @@ def analyse_results(athlete_id: str) -> None:
 
 
 def _generate_graph(data_frame: DataFrame) -> None:
-    fig: Figure = px.line(data_frame, x="Run Date", y="time_seconds", title="Parkrun results")
-    fig.update_layout(xaxis_title="Date", yaxis_title="Time (minute:seconds)")
+    figure: Figure = Figure()
 
-    # Update the y axis to show the time in mm:ss format.
-    fig.update_yaxes(tickvals=data_frame["time_seconds"], ticktext=[f"{v//60:02d}:{v % 60:02d}" for v in data_frame["time_seconds"]])
+    # Add a trace for the overall results.
+    figure.add_trace(Scatter(x=data_frame["Run Date"], y=data_frame["time_seconds"], mode="lines+markers", name="Total"))
+
+    # Add a trace for each event.
+    for event, group in data_frame.groupby("Event"):
+        figure.add_trace(Scatter(x=group["Run Date"], y=group["time_seconds"], mode="lines", name=event))
+
+    figure.update_layout(title="Parkrun results (Total)", xaxis_title="Date", yaxis_title="Time (minute:seconds)")
+
+    # Add a tick on the Y axis for each time interval.
+    figure.update_yaxes(tickvals=data_frame["time_seconds"], ticktext=[f"{v//60:02d}:{v % 60:02d}" for v in data_frame["time_seconds"]])
 
     output_file_name: str = "results.html"
 
     print(f"Writing output to {output_file_name}")
 
-    fig.write_html(output_file_name)
+    figure.write_html(output_file_name)
 
 
 def _normalise_time_string(time_str: str) -> str:
