@@ -1,4 +1,7 @@
 from io import StringIO
+from typing import Any
+
+from bs4 import BeautifulSoup
 
 import pandas as pd
 from pandas import DataFrame
@@ -19,16 +22,16 @@ def analyse_results(athlete_id: str) -> None:
         else:
             raise RuntimeError(f"Failed to load page, error code: {response.status_code}")
 
-    data_frame: DataFrame = _parse_results_page(response.text)
+    athlete_name, data_frame = _parse_results_page(response.text)
 
     print(f"Parsed {len(data_frame)} results")
 
     print("Generating graph")
 
-    _generate_graph(data_frame, athlete_id)
+    _generate_graph(data_frame, athlete_id, athlete_name)
 
 
-def _generate_graph(data_frame: DataFrame, athlete_id: str) -> None:
+def _generate_graph(data_frame: DataFrame, athlete_id: str, athlete_name: str) -> None:
     figure: Figure = Figure()
 
     # Add a trace for the overall results.
@@ -38,7 +41,7 @@ def _generate_graph(data_frame: DataFrame, athlete_id: str) -> None:
     for event, group in data_frame.groupby("Event"):
         figure.add_trace(Scatter(x=group["Run Date"], y=group["time_seconds"], mode="lines", name=event))
 
-    figure.update_layout(title="Parkrun results (Total)", xaxis_title="Date", yaxis_title="Time (minute:seconds)")
+    figure.update_layout(title=f"{athlete_name}'s Parkrun results", xaxis_title="Date", yaxis_title="Time (minute:seconds)")
 
     # Add a tick on the Y axis for each time interval.
     figure.update_yaxes(tickvals=data_frame["time_seconds"], ticktext=[f"{v//60:02d}:{v % 60:02d}" for v in data_frame["time_seconds"]])
@@ -85,7 +88,12 @@ def _request_results_page(athlete_id: str) -> Response:
         return response
 
 
-def _parse_results_page(page_contents: str) -> pd.DataFrame:
+def _parse_results_page(page_contents: str) -> tuple[str, DataFrame]:
+    # Read the html of the page to get the athlete's name.
+    bs_page_contents: BeautifulSoup = BeautifulSoup(page_contents, "html.parser")
+    header: Any = bs_page_contents.find("h2")
+    athlete_name: str = header.find(string=True, recursive=False).strip().title()
+
     # Convert the page contents to a file like object for pandas to read.
     buffer: StringIO = StringIO(page_contents)
 
@@ -105,7 +113,7 @@ def _parse_results_page(page_contents: str) -> pd.DataFrame:
     # Convert time to seconds as timedelta can't be used in plotly
     results_df["time_seconds"] = pd.to_timedelta(results_df["Time"].apply(_normalise_time_string)).dt.total_seconds().astype(int)
 
-    return results_df[["Event", "Run Date", "time_seconds"]]
+    return (athlete_name, results_df[["Event", "Run Date", "time_seconds"]])
 
 
 if __name__ == "__main__":
