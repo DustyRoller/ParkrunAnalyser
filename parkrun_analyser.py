@@ -25,10 +25,10 @@ def analyse_results(athlete_id: str) -> None:
 
     print("Generating graph")
 
-    _generate_graph(data_frame)
+    _generate_graph(data_frame, athlete_id)
 
 
-def _generate_graph(data_frame: DataFrame) -> None:
+def _generate_graph(data_frame: DataFrame, athlete_id: str) -> None:
     figure: Figure = Figure()
 
     # Add a trace for the overall results.
@@ -43,7 +43,7 @@ def _generate_graph(data_frame: DataFrame) -> None:
     # Add a tick on the Y axis for each time interval.
     figure.update_yaxes(tickvals=data_frame["time_seconds"], ticktext=[f"{v//60:02d}:{v % 60:02d}" for v in data_frame["time_seconds"]])
 
-    output_file_name: str = "results.html"
+    output_file_name: str = f"{athlete_id}-results.html"
 
     print(f"Writing output to {output_file_name}")
 
