@@ -116,6 +116,19 @@ def _parse_results_page(page_contents: str) -> tuple[str, DataFrame]:
     return (athlete_name, results_df[["Event", "Run Date", "time_seconds"]])
 
 
+def _validate_athlete_id(athlete_id: str) -> None:
+    # First check that the ID starts with the letter A.
+    if not athlete_id[0] == 'A' and not athlete_id[0] == 'a':
+        raise RuntimeError("Athlete ID must start with the letter A")
+
+    # Make sure the ID is either 8 or 9 characters long.
+    if len(athlete_id) < 8 or len(athlete_id) > 9:
+        raise RuntimeError("Athlete ID must be 8 or 9 characters long")
+    #A6978572
+    #A1028877
+    #A11628754
+
+
 if __name__ == "__main__":
     from argparse import ArgumentParser, Namespace
 
@@ -126,5 +139,7 @@ if __name__ == "__main__":
     parser.add_argument("--athlete_id", required=True, help="The Parkrun athlete's ID number")
 
     args: Namespace = parser.parse_args()
+
+    _validate_athlete_id(args.athlete_id)
 
     analyse_results(args.athlete_id)
