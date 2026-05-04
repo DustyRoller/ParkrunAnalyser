@@ -78,7 +78,8 @@ def _request_results_page(athlete_id: str) -> Response:
             "Sec-Fetch-User": "?1"
         }
 
-        url: str = f"https://www.parkrun.org.uk/parkrunner/{athlete_id}/all/"
+        # Note that the athlete URL doesn't include the leading 'A' from the athlete ID.
+        url: str = f"https://www.parkrun.org.uk/parkrunner/{athlete_id[1:]}/all/"
 
         print(f"Requesting data from {url}")
 
@@ -124,9 +125,10 @@ def _validate_athlete_id(athlete_id: str) -> None:
     # Make sure the ID is either 8 or 9 characters long.
     if len(athlete_id) < 8 or len(athlete_id) > 9:
         raise RuntimeError("Athlete ID must be 8 or 9 characters long")
-    #A6978572
-    #A1028877
-    #A11628754
+
+    # Make sure the ID after the 'A' is all numbers.
+    if not athlete_id[1:].isnumeric():
+        raise RuntimeError("Athlete ID must be all numbers after the starting 'A'")
 
 
 if __name__ == "__main__":
