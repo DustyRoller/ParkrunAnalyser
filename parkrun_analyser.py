@@ -35,11 +35,11 @@ def _generate_graph(data_frame: DataFrame, athlete_id: str, athlete_name: str) -
     figure: Figure = Figure()
 
     # Add a trace for the overall results.
-    figure.add_trace(Scatter(x=data_frame["Run Date"], y=data_frame["time_seconds"], mode="lines+markers", name="Total"))
+    figure.add_trace(Scatter(x=data_frame["Run Date"], y=data_frame["time_seconds"], mode="lines+markers", name="Total", visible=True))
 
     # Add a trace for each event.
     for event, group in data_frame.groupby("Event"):
-        figure.add_trace(Scatter(x=group["Run Date"], y=group["time_seconds"], mode="lines", name=event))
+        figure.add_trace(Scatter(x=group["Run Date"], y=group["time_seconds"], mode="lines", name=event, visible="legendonly"))
 
     figure.update_layout(title=f"{athlete_name}'s Parkrun results", xaxis_title="Date", yaxis_title="Time (minute:seconds)")
 
