@@ -20,7 +20,9 @@ def analyse_results(athlete_id: str) -> None:
         if response.status_code == 202:
             raise RuntimeError("Load page manually and try again")
         else:
-            raise RuntimeError(f"Failed to load page, error code: {response.status_code}")
+            raise RuntimeError(
+                f"Failed to load page, error code: {response.status_code}"
+            )
 
     athlete_name, data_frame = _parse_results_page(response.text)
 
@@ -32,19 +34,57 @@ def analyse_results(athlete_id: str) -> None:
 
 
 def _generate_graph(data_frame: DataFrame, athlete_id: str, athlete_name: str) -> None:
+    pb_time: int = data_frame["time_seconds"].min()
+
+    # Build arrays for conditional styling
+    symbols: list[str] = ["circle" if v != pb_time else "star" for v in data_frame["time_seconds"]]
+    sizes: list[int] = [8 if v != pb_time else 18 for v in data_frame["time_seconds"]]
+    colors: list[str] = ["blue" if v != pb_time else "red" for v in data_frame["time_seconds"]]
+
     figure: Figure = Figure()
 
     # Add a trace for the overall results.
-    figure.add_trace(Scatter(x=data_frame["Run Date"], y=data_frame["time_seconds"], mode="lines+markers", name="Total", visible=True))
+    figure.add_trace(
+        Scatter(
+            x=data_frame["Run Date"],
+            y=data_frame["time_seconds"],
+            mode="lines+markers",
+            marker=dict(symbol=symbols, size=sizes, color=colors),
+            customdata=data_frame[["Event"]],
+            name="Total",
+            visible=True,
+            hovertemplate=(
+                "Run Date: %{x|%d/%m/%y}<br>"
+                "Time: %{y}<br>"
+                "Event: %{customdata[0]}<br>"
+                "<extra></extra>"
+            ),
+        )
+    )
 
     # Add a trace for each event.
     for event, group in data_frame.groupby("Event"):
-        figure.add_trace(Scatter(x=group["Run Date"], y=group["time_seconds"], mode="lines", name=event, visible="legendonly"))
+        figure.add_trace(
+            Scatter(
+                x=group["Run Date"],
+                y=group["time_seconds"],
+                mode="lines",
+                name=event,
+                visible="legendonly",
+            )
+        )
 
-    figure.update_layout(title=f"{athlete_name}'s Parkrun results", xaxis_title="Date", yaxis_title="Time (minute:seconds)")
+    figure.update_layout(
+        title=f"{athlete_name}'s Parkrun results",
+        xaxis_title="Date",
+        yaxis_title="Time (minute:seconds)",
+    )
 
     # Add a tick on the Y axis for each time interval.
-    figure.update_yaxes(tickvals=data_frame["time_seconds"], ticktext=[f"{v//60:02d}:{v % 60:02d}" for v in data_frame["time_seconds"]])
+    figure.update_yaxes(
+        tickvals=data_frame["time_seconds"],
+        ticktext=[f"{v//60:02d}:{v % 60:02d}" for v in data_frame["time_seconds"]],
+    )
 
     output_file_name: str = f"{athlete_id}-results.html"
 
@@ -55,7 +95,7 @@ def _generate_graph(data_frame: DataFrame, athlete_id: str, athlete_name: str) -
 
 def _normalise_time_string(time_str: str) -> str:
     # Check if the string only has one colon.
-    if time_str.count(':') == 1:
+    if time_str.count(":") == 1:
         # Append 00: to string to add hour value.
         time_str = "00:" + time_str
 
@@ -75,7 +115,7 @@ def _request_results_page(athlete_id: str) -> Response:
             "Sec-Fetch-Dest": "document",
             "Sec-Fetch-Mode": "navigate",
             "Sec-Fetch-Site": "none",
-            "Sec-Fetch-User": "?1"
+            "Sec-Fetch-User": "?1",
         }
 
         # Note that the athlete URL doesn't include the leading 'A' from the athlete ID.
@@ -112,14 +152,18 @@ def _parse_results_page(page_contents: str) -> tuple[str, DataFrame]:
     results_df["Run Date"] = pd.to_datetime(results_df["Run Date"], format="%d/%m/%Y")
 
     # Convert time to seconds as timedelta can't be used in plotly
-    results_df["time_seconds"] = pd.to_timedelta(results_df["Time"].apply(_normalise_time_string)).dt.total_seconds().astype(int)
+    results_df["time_seconds"] = (
+        pd.to_timedelta(results_df["Time"].apply(_normalise_time_string))
+        .dt.total_seconds()
+        .astype(int)
+    )
 
     return (athlete_name, results_df[["Event", "Run Date", "time_seconds"]])
 
 
 def _validate_athlete_id(athlete_id: str) -> None:
     # First check that the ID starts with the letter A.
-    if not athlete_id[0] == 'A' and not athlete_id[0] == 'a':
+    if not athlete_id[0] == "A" and not athlete_id[0] == "a":
         raise RuntimeError("Athlete ID must start with the letter A")
 
     # Make sure the ID is either 8 or 9 characters long.
@@ -135,10 +179,12 @@ if __name__ == "__main__":
     from argparse import ArgumentParser, Namespace
 
     parser: ArgumentParser = ArgumentParser(
-                    prog='Parkrun analyser',
-                    description='Analyser a Parkrun athletes results')
+        prog="Parkrun analyser", description="Analyser a Parkrun athletes results"
+    )
 
-    parser.add_argument("--athlete_id", required=True, help="The Parkrun athlete's ID number")
+    parser.add_argument(
+        "--athlete_id", required=True, help="The Parkrun athlete's ID number"
+    )
 
     args: Namespace = parser.parse_args()
 
