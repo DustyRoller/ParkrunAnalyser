@@ -49,7 +49,7 @@ def _generate_graph(data_frame: DataFrame, athlete_id: str, athlete_name: str) -
             x=data_frame["Run Date"],
             y=data_frame["time_seconds"],
             mode="lines+markers",
-            marker=dict(symbol=symbols, size=sizes, color=colors),
+            marker={"symbol": symbols, "size": sizes, "color": colors},
             customdata=data_frame[["Event"]],
             name="Total",
             visible=True,

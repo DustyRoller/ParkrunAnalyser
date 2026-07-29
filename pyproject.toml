@@ -2,3 +2,6 @@
 extend-select = [
     "PTH", # Use pathlib instead of os.path
 ]
+ignore = [
+    "I001", # Import ordering
+]
