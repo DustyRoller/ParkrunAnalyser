@@ -1,7 +1,11 @@
+import sqlite3
 from io import StringIO
+from sqlite3 import Cursor
 from typing import Any
 
 from bs4 import BeautifulSoup
+
+from folium import Element, Icon, Map, Marker
 
 import pandas as pd
 from pandas import DataFrame
@@ -14,23 +18,48 @@ from requests import Response, Session
 def analyse_results(athlete_id: str) -> None:
     print(f"Anaylsing Parkrun athlete {athlete_id}")
 
-    response: Response = _request_results_page(athlete_id)
-
-    if response.status_code != 200:
-        if response.status_code == 202:
-            raise RuntimeError("Load page manually and try again")
-        else:
-            raise RuntimeError(
-                f"Failed to load page, error code: {response.status_code}"
-            )
-
-    athlete_name, data_frame = _parse_results_page(response.text)
+    athlete_name, data_frame = _get_athlete_data(athlete_id)
 
     print(f"Parsed {len(data_frame)} results")
 
     print("Generating graph")
 
     _generate_graph(data_frame, athlete_id, athlete_name)
+
+
+def generate_map(athlete_id: str) -> None:
+    print(f"Generating map for Parkrun athlete {athlete_id}")
+
+    athlete_name, data_frame = _get_athlete_data(athlete_id)
+
+    events: pd.arrays.StringArray = data_frame['Event'].unique()
+
+    map = Map(location=(30, 10), zoom_start=3, tiles="cartodb positron")
+
+    title_html: str = f"<h3 align=\"center\" style=\"font-size:16px\"><b>{athlete_name}'s Parkruns</b></h3>"
+    map.get_root().html.add_child(Element(title_html))
+
+    with sqlite3.connect("ParkrunEventData.sqlite") as con:
+        cur: Cursor = con.cursor()
+
+        for event in events:
+            location_data: tuple[float, float] | None = _get_event_location(cur, event)
+
+            if not location_data:
+                print(f"Failed to find location for event: {event}")
+                continue
+
+            Marker(
+                    location=[location_data[0], location_data[1]],
+                    popup=event,
+                    icon=Icon(color="blue")
+                ).add_to(map)
+
+    output_file_name: str = f"{athlete_id}-map.html"
+
+    print(f"Writing output to {output_file_name}")
+
+    map.save(output_file_name)
 
 
 def _generate_graph(data_frame: DataFrame, athlete_id: str, athlete_name: str) -> None:
@@ -91,6 +120,31 @@ def _generate_graph(data_frame: DataFrame, athlete_id: str, athlete_name: str) -
     print(f"Writing output to {output_file_name}")
 
     figure.write_html(output_file_name)
+
+
+def _get_athlete_data(athlete_id: str) -> tuple[str, DataFrame]:
+    response: Response = _request_results_page(athlete_id)
+
+    if response.status_code != 200:
+        if response.status_code == 202:
+            raise RuntimeError("Load page manually and try again")
+        else:
+            raise RuntimeError(
+                f"Failed to load page, error code: {response.status_code}"
+            )
+
+    return _parse_results_page(response.text)
+
+
+def _get_event_location(cur: Cursor, event: str) -> tuple[float, float] | None:
+    res = cur.execute(f"SELECT Lat,Lon FROM Events WHERE Name IS \"{event}\" LIMIT 1")
+    location_data: tuple[str, str] | None = res.fetchone()
+    locations: tuple[float, float] | None = None
+
+    if location_data:
+        locations = (float(location_data[0]), float(location_data[1]))
+
+    return locations
 
 
 def _normalise_time_string(time_str: str) -> str:
@@ -185,9 +239,13 @@ if __name__ == "__main__":
     parser.add_argument(
         "--athlete_id", required=True, help="The Parkrun athlete's ID number"
     )
+    parser.add_argument("--map", action='store_true', help="Generate map of Parkrun locations")
 
     args: Namespace = parser.parse_args()
 
     _validate_athlete_id(args.athlete_id)
 
-    analyse_results(args.athlete_id)
+    if args.map:
+        generate_map(args.athlete_id)
+    else:
+        analyse_results(args.athlete_id)
