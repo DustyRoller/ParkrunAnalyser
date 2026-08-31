@@ -20,4 +20,4 @@ jobs:
         pip install mypy
     - name: Analysing the code with mypy
       run: |
-        mypy --install-types --non-interactive --strict $(git ls-files '*.py' ':!test/**')
+        mypy --install-types --non-interactive --strict . --exclude '^test/'
