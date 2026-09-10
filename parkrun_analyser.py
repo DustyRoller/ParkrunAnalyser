@@ -37,7 +37,8 @@ def generate_map(athlete_id: str) -> None:
     map = Map(location=(30, 10), zoom_start=3, tiles="cartodb positron")
 
     title_html: str = f"<h3 align=\"center\" style=\"font-size:16px\"><b>{athlete_name}'s Parkruns</b></h3>"
-    map.get_root().html.add_child(Element(title_html))
+    #map.get_root().html.add_child(Element(title_html))
+    map.get_root().add_child(Element(title_html))
 
     with sqlite3.connect("ParkrunEventData.sqlite") as con:
         cur: Cursor = con.cursor()
