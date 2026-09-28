@@ -46,13 +46,24 @@ def generate_map(athlete_id: str) -> None:
             location_data: tuple[float, float] | None = _get_event_location(cur, event)
 
             if not location_data:
-                print(f"Failed to find location for event: {event}")
+                print(f"Failed to find location data for event: {event}")
                 continue
+
+            res = cur.execute(f"SELECT Active FROM Events WHERE Name IS \"{event}\" LIMIT 1")
+            active_value: tuple[bool, ...] | None = res.fetchone()
+            if active_value is None:
+                print(f"Failed to find active data for event: {event}")
+                continue
+
+            if not active_value[0]:
+                icon_colour = "darkblue"
+            else:
+                icon_colour = "blue"
 
             Marker(
                     location=[location_data[0], location_data[1]],
                     popup=event,
-                    icon=Icon(color="blue")
+                    icon=Icon(color=icon_colour)
                 ).add_to(map)
 
     output_file_name: str = f"{athlete_id}-map.html"
