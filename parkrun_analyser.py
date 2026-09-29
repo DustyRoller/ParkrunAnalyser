@@ -1,6 +1,5 @@
-import sqlite3
 from io import StringIO
-from sqlite3 import Cursor
+from sqlite3 import Cursor, connect
 from typing import Any
 
 from bs4 import BeautifulSoup
@@ -39,7 +38,7 @@ def generate_map(athlete_id: str) -> None:
     title_html: str = f"<h3 align=\"center\" style=\"font-size:16px\"><b>{athlete_name}'s Parkruns</b></h3>"
     map.get_root().html.add_child(Element(title_html))
 
-    with sqlite3.connect("ParkrunEventData.sqlite") as con:
+    with connect("ParkrunEventData.sqlite") as con:
         cur: Cursor = con.cursor()
 
         for event in events:
@@ -148,7 +147,7 @@ def _get_athlete_data(athlete_id: str) -> tuple[str, DataFrame]:
 
 
 def _get_event_location(cur: Cursor, event: str) -> tuple[float, float] | None:
-    res = cur.execute(f"SELECT Lat,Lon FROM Events WHERE Name IS \"{event}\" LIMIT 1")
+    res: Cursor = cur.execute(f"SELECT Lat,Lon FROM Events WHERE Name IS \"{event}\" LIMIT 1")
     location_data: tuple[str, str] | None = res.fetchone()
     locations: tuple[float, float] | None = None
 
