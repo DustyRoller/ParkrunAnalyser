@@ -1,4 +1,5 @@
 from io import StringIO
+from pathlib import Path
 from sqlite3 import Cursor, connect
 from typing import Any
 
@@ -14,7 +15,10 @@ from plotly.graph_objects import Figure, Scatter
 from requests import Response, Session
 
 
-def analyse_results(athlete_id: str) -> None:
+def analyse_athlete(athlete_id: str, generate_map: bool) -> None:
+    # First validate the athlete ID.
+    _validate_athlete_id(athlete_id)
+
     print(f"Anaylsing Parkrun athlete {athlete_id}")
 
     athlete_name, data_frame = _get_athlete_data(athlete_id)
@@ -25,51 +29,18 @@ def analyse_results(athlete_id: str) -> None:
 
     _generate_graph(data_frame, athlete_id, athlete_name)
 
+    if generate_map:
+        print("Generating map")
 
-def generate_map(athlete_id: str) -> None:
-    print(f"Generating map for Parkrun athlete {athlete_id}")
+        _generate_map(data_frame, athlete_id, athlete_name)
 
-    athlete_name, data_frame = _get_athlete_data(athlete_id)
 
-    events: pd.arrays.StringArray = data_frame['Event'].unique()
+def analyse_athletes(athlete_ids_file_path: Path, generate_map: bool) -> None:
+    print(f"Parsing {athlete_ids_file_path}")
 
-    map = Map(location=(30, 10), zoom_start=3, tiles="cartodb positron")
-
-    title_html: str = f"<h3 align=\"center\" style=\"font-size:16px\"><b>{athlete_name}'s Parkruns</b></h3>"
-    map.get_root().html.add_child(Element(title_html))
-
-    with connect("ParkrunEventData.sqlite") as con:
-        cur: Cursor = con.cursor()
-
-        for event in events:
-            location_data: tuple[float, float] | None = _get_event_location(cur, event)
-
-            if not location_data:
-                print(f"Failed to find location data for event: {event}")
-                continue
-
-            res = cur.execute(f"SELECT Active FROM Events WHERE Name IS \"{event}\" LIMIT 1")
-            active_value: tuple[bool, ...] | None = res.fetchone()
-            if active_value is None:
-                print(f"Failed to find active data for event: {event}")
-                continue
-
-            if not active_value[0]:
-                icon_colour = "darkblue"
-            else:
-                icon_colour = "blue"
-
-            Marker(
-                    location=[location_data[0], location_data[1]],
-                    popup=event,
-                    icon=Icon(color=icon_colour)
-                ).add_to(map)
-
-    output_file_name: str = f"{athlete_id}-map.html"
-
-    print(f"Writing output to {output_file_name}")
-
-    map.save(output_file_name)
+    with athlete_ids_file_path.open() as f:
+        for line in f.readlines():
+            analyse_athlete(line, generate_map)
 
 
 def _generate_graph(data_frame: DataFrame, athlete_id: str, athlete_name: str) -> None:
@@ -130,6 +101,37 @@ def _generate_graph(data_frame: DataFrame, athlete_id: str, athlete_name: str) -
     print(f"Writing output to {output_file_name}")
 
     figure.write_html(output_file_name)
+
+
+def _generate_map(data_frame: DataFrame, athlete_id: str, athlete_name: str) -> None:
+    events: pd.arrays.StringArray = data_frame['Event'].unique()
+
+    map: Map = Map(location=(30, 10), zoom_start=3, tiles="cartodb positron")
+
+    title_html: str = f"<h3 align=\"center\" style=\"font-size:16px\"><b>{athlete_name}'s Parkruns</b></h3>"
+    map.get_root().html.add_child(Element(title_html))
+
+    with connect("ParkrunEventData.sqlite") as con:
+        cur: Cursor = con.cursor()
+
+        for event in events:
+            location_data: tuple[float, float] | None = _get_event_location(cur, event)
+
+            if not location_data:
+                print(f"Failed to find location for event: {event}")
+                continue
+
+            Marker(
+                    location=[location_data[0], location_data[1]],
+                    popup=event,
+                    icon=Icon(color="blue")
+                ).add_to(map)
+
+    output_file_name: str = f"{athlete_id}-map.html"
+
+    print(f"Writing output to {output_file_name}")
+
+    map.save(output_file_name)
 
 
 def _get_athlete_data(athlete_id: str) -> tuple[str, DataFrame]:
@@ -240,22 +242,24 @@ def _validate_athlete_id(athlete_id: str) -> None:
 
 
 if __name__ == "__main__":
-    from argparse import ArgumentParser, Namespace
+    import sys
+    from argparse import ArgumentParser, Namespace, _MutuallyExclusiveGroup
 
     parser: ArgumentParser = ArgumentParser(
         prog="Parkrun analyser", description="Analyser a Parkrun athletes results"
     )
 
-    parser.add_argument(
-        "--athlete_id", required=True, help="The Parkrun athlete's ID number"
-    )
+    query_group: _MutuallyExclusiveGroup = parser.add_mutually_exclusive_group(required=True)
+    query_group.add_argument("--athlete_id", help="The Parkrun athlete's ID")
+    query_group.add_argument("--athlete_ids", type=Path, help="Path to file contain Parkrun athlete IDs")
+
     parser.add_argument("--map", action='store_true', help="Generate map of Parkrun locations")
 
     args: Namespace = parser.parse_args()
 
-    _validate_athlete_id(args.athlete_id)
-
-    if args.map:
-        generate_map(args.athlete_id)
+    if args.athlete_id:
+        analyse_athlete(args.athlete_id, args.map)
     else:
-        analyse_results(args.athlete_id)
+        if not args.athlete_ids.is_file():
+            sys.exit(f"File does not exist: {args.athlete_ids}")
+        analyse_athletes(args.athlete_ids, args.map)
